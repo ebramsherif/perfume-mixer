@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Note pills styling */
+.note-pill {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all;
+}
+
+.note-top {
+  @apply bg-amber-900/30 text-amber-200 border border-amber-700/50;
+}
+
+.note-middle {
+  @apply bg-rose-900/30 text-rose-200 border border-rose-700/50;
+}
+
+.note-base {
+  @apply bg-violet-900/30 text-violet-200 border border-violet-700/50;
+}
