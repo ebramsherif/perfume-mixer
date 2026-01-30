@@ -152,7 +152,7 @@ function StepCard({ step, perfume1Name, perfume2Name, isActive, isComplete }: {
 
 export default function LayeringGuide({ perfume1, perfume2 }: LayeringGuideProps) {
   const [guide, setGuide] = useState<LayeringGuideType | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start loading immediately
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -185,6 +185,7 @@ export default function LayeringGuide({ perfume1, perfume2 }: LayeringGuideProps
 
   useEffect(() => {
     fetchGuide();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perfume1.id, perfume2.id, intensity]);
 
   // Auto-play animation
