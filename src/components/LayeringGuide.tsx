@@ -19,11 +19,11 @@ const LOCATION_LABELS: Record<SprayLocation, string> = {
 };
 
 const LOCATION_POSITIONS: Record<SprayLocation, { x: number; y: number }> = {
-  wrists: { x: 20, y: 65 },
+  wrists: { x: 12, y: 47 },
   neck: { x: 50, y: 18 },
   chest: { x: 50, y: 35 },
   behind_ears: { x: 35, y: 12 },
-  inner_elbows: { x: 25, y: 50 },
+  inner_elbows: { x: 22, y: 38 },
   hair: { x: 50, y: 5 },
   clothes: { x: 50, y: 55 },
 };
@@ -97,9 +97,9 @@ function StepCard({ step, perfume1Name, perfume2Name, isActive, isComplete }: {
   return (
     <div
       className={`
-        relative p-4 rounded-xl border transition-all duration-500
+        relative p-4 rounded-xl border transition-all duration-300
         ${isActive
-          ? `bg-${accentColor}-500/10 border-${accentColor}-500/50 scale-105`
+          ? `${accentColor === "amber" ? "bg-amber-500/10 border-amber-500/50 ring-2 ring-amber-500/30" : "bg-rose-500/10 border-rose-500/50 ring-2 ring-rose-500/30"}`
           : isComplete
             ? "bg-zinc-800/50 border-zinc-700 opacity-60"
             : "bg-zinc-900/50 border-zinc-800 opacity-40"
