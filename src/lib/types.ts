@@ -51,3 +51,28 @@ export interface AIAnalysisResult {
   occasions: string[];
   layeringTip: string;
 }
+
+export type SprayLocation = "wrists" | "neck" | "chest" | "behind_ears" | "inner_elbows" | "hair" | "clothes";
+
+export interface LayeringStep {
+  order: number;
+  perfume: "first" | "second";
+  location: SprayLocation;
+  sprays: number;
+  waitTime?: number; // seconds to wait before next step
+  tip?: string;
+}
+
+export interface LayeringGuide {
+  steps: LayeringStep[];
+  totalSprays: { first: number; second: number };
+  estimatedDuration: string;
+  intensityLevel: "subtle" | "moderate" | "bold";
+  proTip: string;
+}
+
+export interface AIPairing {
+  name: string;
+  brand: string;
+  reason: string;
+}

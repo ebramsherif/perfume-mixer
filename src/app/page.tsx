@@ -6,6 +6,8 @@ import PerfumeCard from "@/components/PerfumeCard";
 import MatchScore from "@/components/MatchScore";
 import AIAnalysis from "@/components/AIAnalysis";
 import Recommendations from "@/components/Recommendations";
+import LayeringGuide from "@/components/LayeringGuide";
+import AIPairings from "@/components/AIPairings";
 import { Perfume, SearchResult, MatchAnalysis } from "@/lib/types";
 import { calculateMatch } from "@/lib/matchAlgorithm";
 
@@ -188,14 +190,20 @@ export default function Home() {
               )}
             </div>
 
-            {/* Recommendations */}
-            {recommendations1.length > 0 && (
-              <Recommendations
-                recommendations={recommendations1}
+            {/* AI Pairings and Regular Recommendations */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <AIPairings
+                perfume={perfume1}
                 onSelect={handleRecommendationSelect}
-                title="Similar Perfumes - Click to Add"
               />
-            )}
+              {recommendations1.length > 0 && (
+                <Recommendations
+                  recommendations={recommendations1}
+                  onSelect={handleRecommendationSelect}
+                  title="Similar Fragrances"
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -223,6 +231,9 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* Layering Guide */}
+            <LayeringGuide perfume1={perfume1} perfume2={perfume2} />
 
             {/* Try Different Combinations */}
             <div className="text-center py-6 border-t border-zinc-800/50">
