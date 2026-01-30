@@ -7,15 +7,30 @@ const groq = new Groq({
 });
 
 function formatPerfumeForPrompt(perfume: Perfume): string {
-  const topNotes = perfume.topNotes.map((n) => n.name).join(", ") || "none listed";
-  const middleNotes = perfume.middleNotes.map((n) => n.name).join(", ") || "none listed";
-  const baseNotes = perfume.baseNotes.map((n) => n.name).join(", ") || "none listed";
+  const topNotes = perfume.topNotes.map((n) => n.name).join(", ") || "unknown";
+  const middleNotes = perfume.middleNotes.map((n) => n.name).join(", ") || "unknown";
+  const baseNotes = perfume.baseNotes.map((n) => n.name).join(", ") || "unknown";
 
-  return `${perfume.name} by ${perfume.brand}
-  - Top notes: ${topNotes}
-  - Heart notes: ${middleNotes}
-  - Base notes: ${baseNotes}`;
+  return `**${perfume.name}** by ${perfume.brand}
+- Top (5-15 min): ${topNotes}
+- Heart (2-4 hrs): ${middleNotes}
+- Base (4-24+ hrs): ${baseNotes}`;
 }
+
+const SYSTEM_PROMPT = `You are "The Nose," an expert perfumer creating precise layering application guides.
+
+KEY PRINCIPLES:
+1. **Heavy-First Rule:** Apply heaviest molecules (Woods/Orientals/Ambers) FIRST, lightest (Citrus/Florals) SECOND
+2. **Volatility Timing:** Heavier scents need time to settle before adding lighter layers
+3. **Pulse Points:** Wrists, neck, behind ears, inner elbows - body heat diffuses fragrance
+4. **Distance Zones:** Chest/clothes for projection, neck/ears for intimate sillage
+
+SPRAY GUIDANCE:
+- Subtle: 2-3 sprays per fragrance
+- Moderate: 3-4 sprays per fragrance
+- Bold: 5-6 sprays per fragrance
+
+Respond ONLY with valid JSON.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,81 +49,65 @@ export async function POST(request: NextRequest) {
     }
 
     if (!process.env.GROQ_API_KEY) {
-      // Return a default guide if no API key
       const fallbackGuide: LayeringGuide = {
         steps: [
-          { order: 1, perfume: "first", location: "wrists", sprays: 1, waitTime: 30, tip: "Let it settle" },
-          { order: 2, perfume: "first", location: "neck", sprays: 1, waitTime: 30 },
-          { order: 3, perfume: "second", location: "chest", sprays: 1, waitTime: 0, tip: "Creates a scent cloud" },
-          { order: 4, perfume: "second", location: "behind_ears", sprays: 1, waitTime: 0 },
+          { order: 1, perfume: "first", location: "wrists", sprays: 1, waitTime: 30, tip: "Let base notes settle" },
+          { order: 2, perfume: "first", location: "neck", sprays: 1, waitTime: 20 },
+          { order: 3, perfume: "second", location: "chest", sprays: 1, tip: "Creates projection cloud" },
+          { order: 4, perfume: "second", location: "behind_ears", sprays: 1 },
         ],
         totalSprays: { first: 2, second: 2 },
         estimatedDuration: "2 minutes",
         intensityLevel: "moderate",
-        proTip: "Apply to pulse points for best projection and longevity.",
+        proTip: "Apply heavier fragrance first, let it settle, then add the lighter one.",
       };
       return NextResponse.json({ guide: fallbackGuide });
     }
 
-    const sprayCountByIntensity = {
-      subtle: "2-3 total sprays per fragrance",
-      moderate: "3-4 total sprays per fragrance",
-      bold: "5-6 total sprays per fragrance",
-    };
+    // Determine which is heavier based on note profiles
+    const prompt = `Create a precise layering application guide for these two perfumes.
 
-    const prompt = `You are a professional perfumer creating a step-by-step layering guide for two fragrances.
-
-FIRST PERFUME:
+PERFUME 1 (call it "first"):
 ${formatPerfumeForPrompt(perfume1)}
 
-SECOND PERFUME:
+PERFUME 2 (call it "second"):
 ${formatPerfumeForPrompt(perfume2)}
 
-DESIRED INTENSITY: ${intensity} (${sprayCountByIntensity[intensity]})
+INTENSITY: ${intensity}
 
-Create a precise layering guide. Consider which perfume is heavier/lighter based on notes.
-Generally: apply heavier/base-heavy scents first, lighter/fresher ones second.
+ANALYZE: Which perfume is heavier (more base-heavy, oriental, woody)? That one goes FIRST.
+Which is lighter (more citrus, fresh, floral)? That one goes SECOND.
 
-Respond with ONLY this JSON structure:
+Create 4-6 application steps following the Heavy-First Rule.
+
+Respond with ONLY this JSON:
 {
+  "heavierPerfume": "first" or "second",
+  "reasoning": "Brief explanation of why (which notes make it heavier)",
   "steps": [
     {
       "order": 1,
-      "perfume": "first",
-      "location": "wrists",
+      "perfume": "first" or "second",
+      "location": "wrists|neck|chest|behind_ears|inner_elbows|hair|clothes",
       "sprays": 1,
       "waitTime": 30,
-      "tip": "Let the base notes settle"
+      "tip": "Optional tip about this step"
     }
   ],
   "totalSprays": { "first": 3, "second": 3 },
   "estimatedDuration": "2-3 minutes",
   "intensityLevel": "${intensity}",
-  "proTip": "Your specific tip about these two fragrances"
-}
-
-RULES:
-- location must be one of: "wrists", "neck", "chest", "behind_ears", "inner_elbows", "hair", "clothes"
-- perfume must be "first" (${perfume1.name}) or "second" (${perfume2.name})
-- waitTime is in seconds (0-60), use when switching perfumes or for settling
-- Keep to 4-8 steps total
-- Include at least one tip in the steps
-- Be specific about why in the proTip`;
+  "proTip": "Specific tip about layering these two perfumes based on their notes"
+}`;
 
     const completion = await groq.chat.completions.create({
       messages: [
-        {
-          role: "system",
-          content: "You are a fragrance expert. Respond with valid JSON only, no markdown.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
       ],
       model: "llama-3.3-70b-versatile",
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 800,
     });
 
     const responseText = completion.choices[0]?.message?.content || "";
@@ -117,23 +116,46 @@ RULES:
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        guide = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        guide = {
+          steps: parsed.steps || [],
+          totalSprays: parsed.totalSprays || { first: 2, second: 2 },
+          estimatedDuration: parsed.estimatedDuration || "2-3 minutes",
+          intensityLevel: parsed.intensityLevel || intensity,
+          proTip: parsed.proTip || "Apply heavier fragrance first for best results.",
+        };
       } else {
         throw new Error("No JSON found");
       }
     } catch {
-      // Fallback guide
+      // Intelligent fallback based on note analysis
+      const p1BaseHeavy = perfume1.baseNotes.length;
+      const p2BaseHeavy = perfume2.baseNotes.length;
+      const p1TopFresh = perfume1.topNotes.some(n =>
+        /citrus|bergamot|lemon|fresh|green/.test(n.name.toLowerCase())
+      );
+      const p2TopFresh = perfume2.topNotes.some(n =>
+        /citrus|bergamot|lemon|fresh|green/.test(n.name.toLowerCase())
+      );
+
+      // Determine order: more base notes or less fresh = heavier = first
+      const firstIsHeavier = p1BaseHeavy > p2BaseHeavy || (p2TopFresh && !p1TopFresh);
+      const heavier = firstIsHeavier ? "first" : "second";
+      const lighter = firstIsHeavier ? "second" : "first";
+
+      const sprayCount = intensity === "subtle" ? 2 : intensity === "bold" ? 4 : 3;
+
       guide = {
         steps: [
-          { order: 1, perfume: "first", location: "wrists", sprays: 1, waitTime: 30, tip: "Let the base notes settle" },
-          { order: 2, perfume: "first", location: "neck", sprays: 1, waitTime: 20 },
-          { order: 3, perfume: "second", location: "chest", sprays: 1, waitTime: 0, tip: "Creates a beautiful scent cloud" },
-          { order: 4, perfume: "second", location: "behind_ears", sprays: 1 },
+          { order: 1, perfume: heavier as "first" | "second", location: "wrists", sprays: 1, waitTime: 30, tip: "Let the base notes bloom" },
+          { order: 2, perfume: heavier as "first" | "second", location: "neck", sprays: 1, waitTime: 20 },
+          { order: 3, perfume: lighter as "first" | "second", location: "chest", sprays: 1, tip: "Creates a beautiful projection cloud" },
+          { order: 4, perfume: lighter as "first" | "second", location: "behind_ears", sprays: 1, tip: "For intimate sillage" },
         ],
-        totalSprays: { first: 2, second: 2 },
-        estimatedDuration: "2 minutes",
+        totalSprays: { first: sprayCount, second: sprayCount },
+        estimatedDuration: "2-3 minutes",
         intensityLevel: intensity,
-        proTip: "Apply to pulse points where body heat helps diffuse the fragrance.",
+        proTip: `Apply ${firstIsHeavier ? perfume1.name : perfume2.name} first (heavier base), then ${firstIsHeavier ? perfume2.name : perfume1.name} (lighter/fresher).`,
       };
     }
 
