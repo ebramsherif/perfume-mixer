@@ -100,35 +100,8 @@ Respond with ONLY this JSON:
   "proTip": "Specific tip about layering these two perfumes based on their notes"
 }`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_tokens: 800,
-    });
-
-    const responseText = completion.choices[0]?.message?.content || "";
-
-    let guide: LayeringGuide;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        guide = {
-          steps: parsed.steps || [],
-          totalSprays: parsed.totalSprays || { first: 2, second: 2 },
-          estimatedDuration: parsed.estimatedDuration || "2-3 minutes",
-          intensityLevel: parsed.intensityLevel || intensity,
-          proTip: parsed.proTip || "Apply heavier fragrance first for best results.",
-        };
-      } else {
-        throw new Error("No JSON found");
-      }
-    } catch {
-      // Intelligent fallback based on note analysis
+    // Helper function to generate fallback guide
+    const generateFallbackGuide = (): LayeringGuide => {
       const p1BaseHeavy = perfume1.baseNotes.length;
       const p2BaseHeavy = perfume2.baseNotes.length;
       const p1TopFresh = perfume1.topNotes.some(n =>
@@ -138,14 +111,12 @@ Respond with ONLY this JSON:
         /citrus|bergamot|lemon|fresh|green/.test(n.name.toLowerCase())
       );
 
-      // Determine order: more base notes or less fresh = heavier = first
       const firstIsHeavier = p1BaseHeavy > p2BaseHeavy || (p2TopFresh && !p1TopFresh);
       const heavier = firstIsHeavier ? "first" : "second";
       const lighter = firstIsHeavier ? "second" : "first";
-
       const sprayCount = intensity === "subtle" ? 2 : intensity === "bold" ? 4 : 3;
 
-      guide = {
+      return {
         steps: [
           { order: 1, perfume: heavier as "first" | "second", location: "wrists", sprays: 1, waitTime: 30, tip: "Let the base notes bloom" },
           { order: 2, perfume: heavier as "first" | "second", location: "neck", sprays: 1, waitTime: 20 },
@@ -157,6 +128,39 @@ Respond with ONLY this JSON:
         intensityLevel: intensity,
         proTip: `Apply ${firstIsHeavier ? perfume1.name : perfume2.name} first (heavier base), then ${firstIsHeavier ? perfume2.name : perfume1.name} (lighter/fresher).`,
       };
+    };
+
+    let guide: LayeringGuide;
+
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        temperature: 0.6,
+        max_tokens: 1000,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        guide = {
+          steps: parsed.steps || [],
+          totalSprays: parsed.totalSprays || { first: 2, second: 2 },
+          estimatedDuration: parsed.estimatedDuration || "2-3 minutes",
+          intensityLevel: parsed.intensityLevel || intensity,
+          proTip: parsed.proTip || "Apply heavier fragrance first for best results.",
+        };
+      } else {
+        guide = generateFallbackGuide();
+      }
+    } catch (groqError) {
+      console.error("Groq API error, using fallback:", groqError);
+      guide = generateFallbackGuide();
     }
 
     return NextResponse.json({ guide });

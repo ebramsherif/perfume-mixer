@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import SearchBox from "@/components/SearchBox";
+import SearchBoxV2 from "@/components/SearchBoxV2";
 import PerfumeCard from "@/components/PerfumeCard";
 import MatchScore from "@/components/MatchScore";
 import AIAnalysis from "@/components/AIAnalysis";
 import Recommendations from "@/components/Recommendations";
 import LayeringGuide from "@/components/LayeringGuide";
 import AIPairings from "@/components/AIPairings";
+import AskAI from "@/components/AskAI";
 import { Perfume, SearchResult, MatchAnalysis } from "@/lib/types";
 import { calculateMatch } from "@/lib/matchAlgorithm";
 
@@ -36,7 +37,15 @@ export default function Home() {
     setState(slot === 1 ? "loading1" : "loading2");
 
     try {
-      const response = await fetch(`/api/perfume?url=${encodeURIComponent(result.url)}&name=${encodeURIComponent(result.name)}`);
+      const params = new URLSearchParams({
+        url: result.url,
+        name: result.name,
+        brand: result.brand,
+      });
+      if (result.imageUrl) {
+        params.set("imageUrl", result.imageUrl);
+      }
+      const response = await fetch(`/api/perfume?${params}`);
       const data = await response.json();
 
       if (data.error) {
@@ -133,7 +142,7 @@ export default function Home() {
             <p className="text-zinc-400 mb-8 max-w-md">
               Search for a fragrance you own or love, and we&apos;ll help you find the perfect companion for layering.
             </p>
-            <SearchBox
+            <SearchBoxV2
               onSelect={handleSelect1}
               placeholder="Search for a perfume (e.g., Bleu de Chanel)"
               disabled={isLoading}
@@ -175,7 +184,7 @@ export default function Home() {
                 </button>
               ) : (
                 <div className="max-w-xl mx-auto">
-                  <SearchBox
+                  <SearchBoxV2
                     onSelect={handleSelect2}
                     placeholder="Search for a second perfume..."
                     disabled={isLoading}
@@ -204,6 +213,9 @@ export default function Home() {
                 />
               )}
             </div>
+
+            {/* Ask AI Chat */}
+            <AskAI perfume1={perfume1} />
           </div>
         )}
 
@@ -235,6 +247,9 @@ export default function Home() {
             {/* Layering Guide */}
             <LayeringGuide perfume1={perfume1} perfume2={perfume2} />
 
+            {/* Ask AI Chat */}
+            <AskAI perfume1={perfume1} perfume2={perfume2} />
+
             {/* Try Different Combinations */}
             <div className="text-center py-6 border-t border-zinc-800/50">
               <button
@@ -253,7 +268,7 @@ export default function Home() {
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                 <div className="bg-zinc-900 rounded-2xl p-6 max-w-xl w-full">
                   <h3 className="text-lg font-semibold text-white mb-4">Search for a Different Perfume</h3>
-                  <SearchBox
+                  <SearchBoxV2
                     onSelect={handleSelect2}
                     placeholder="Search for a perfume..."
                     disabled={isLoading}
@@ -294,7 +309,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-zinc-800/50 mt-auto">
         <div className="max-w-7xl mx-auto px-4 py-6 text-center text-zinc-500 text-sm">
-          <p>Perfume data from Fragrance API. This tool is for educational purposes only.</p>
+          <p>Perfume data from Fragrantica. This tool is for educational purposes only.</p>
         </div>
       </footer>
     </main>

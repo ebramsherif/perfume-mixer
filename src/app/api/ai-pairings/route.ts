@@ -93,34 +93,15 @@ Respond with this JSON ONLY:
 
 Example search terms: "amber vanilla musk", "bergamot oakmoss chypre", "oud rose", "vetiver citrus", "tonka lavender fougere"`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_tokens: 800,
-    });
-
-    const responseText = completion.choices[0]?.message?.content || "";
-
     let analysis = null;
     let searches: Array<{ term: string; matchType: string; reason: string }> = [];
 
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        analysis = parsed.analysis;
-        searches = parsed.searches || [];
-      }
-    } catch {
-      // Fallback based on note analysis
+    // Helper to generate fallback searches based on notes
+    const generateFallbackSearches = () => {
+      const fallbackSearches: Array<{ term: string; matchType: string; reason: string }> = [];
       const allNotes = [...perfume.topNotes, ...perfume.middleNotes, ...perfume.baseNotes]
         .map(n => n.name.toLowerCase());
 
-      // Detect family and suggest complementary searches
       const hasWoody = allNotes.some(n => /wood|cedar|sandalwood|vetiver|oud/.test(n));
       const hasCitrus = allNotes.some(n => /bergamot|lemon|orange|citrus|grapefruit/.test(n));
       const hasFloral = allNotes.some(n => /rose|jasmine|iris|violet|floral/.test(n));
@@ -128,27 +109,55 @@ Example search terms: "amber vanilla musk", "bergamot oakmoss chypre", "oud rose
       const hasSpice = allNotes.some(n => /pepper|cardamom|cinnamon|saffron|spice/.test(n));
 
       if (hasWoody) {
-        searches.push({ term: "rose oud", matchType: "bridge", reason: "Classic wood-floral bridge" });
-        searches.push({ term: "amber vanilla", matchType: "structural", reason: "Warm oriental base complement" });
+        fallbackSearches.push({ term: "rose oud", matchType: "bridge", reason: "Classic wood-floral bridge" });
+        fallbackSearches.push({ term: "amber vanilla", matchType: "structural", reason: "Warm oriental base complement" });
       }
       if (hasCitrus) {
-        searches.push({ term: "vetiver musk", matchType: "contrast", reason: "Earthy base anchors bright citrus" });
-        searches.push({ term: "neroli orange blossom", matchType: "vibe", reason: "Extends citrus with floral depth" });
+        fallbackSearches.push({ term: "vetiver musk", matchType: "contrast", reason: "Earthy base anchors bright citrus" });
+        fallbackSearches.push({ term: "neroli orange blossom", matchType: "vibe", reason: "Extends citrus with floral depth" });
       }
       if (hasFloral) {
-        searches.push({ term: "sandalwood musk", matchType: "bridge", reason: "Creamy woods extend floral dry-down" });
-        searches.push({ term: "bergamot chypre", matchType: "structural", reason: "Classic floral-chypre pairing" });
+        fallbackSearches.push({ term: "sandalwood musk", matchType: "bridge", reason: "Creamy woods extend floral dry-down" });
+        fallbackSearches.push({ term: "bergamot chypre", matchType: "structural", reason: "Classic floral-chypre pairing" });
       }
       if (hasOriental) {
-        searches.push({ term: "fresh citrus bergamot", matchType: "contrast", reason: "Brightens heavy oriental" });
-        searches.push({ term: "oud wood", matchType: "vibe", reason: "Deepens oriental character" });
+        fallbackSearches.push({ term: "fresh citrus bergamot", matchType: "contrast", reason: "Brightens heavy oriental" });
+        fallbackSearches.push({ term: "oud wood", matchType: "vibe", reason: "Deepens oriental character" });
       }
       if (hasSpice) {
-        searches.push({ term: "leather tobacco", matchType: "vibe", reason: "Enhances spicy masculinity" });
+        fallbackSearches.push({ term: "leather tobacco", matchType: "vibe", reason: "Enhances spicy masculinity" });
       }
 
-      // Always include a universal bridge
-      searches.push({ term: "white musk skin", matchType: "bridge", reason: "Universal connector note" });
+      fallbackSearches.push({ term: "white musk skin", matchType: "bridge", reason: "Universal connector note" });
+      return fallbackSearches;
+    };
+
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        temperature: 0.6,
+        max_tokens: 1000,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          analysis = parsed.analysis;
+          searches = parsed.searches || [];
+        }
+      } catch {
+        searches = generateFallbackSearches();
+      }
+    } catch (groqError) {
+      console.error("Groq API error, using fallback:", groqError);
+      searches = generateFallbackSearches();
     }
 
     // Search for perfumes matching these profiles

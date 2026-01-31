@@ -21,6 +21,10 @@ export interface Perfume {
   sillage?: string;
   year?: string;
   gender?: string;
+  perfumer?: string;
+  concentration?: string; // EDP, EDT, Parfum, etc.
+  // Data source info
+  source?: "fragrantica" | "rapidapi";
 }
 
 export interface SearchResult {

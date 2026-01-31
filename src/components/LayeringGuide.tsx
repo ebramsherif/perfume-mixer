@@ -18,14 +18,15 @@ const LOCATION_LABELS: Record<SprayLocation, string> = {
   clothes: "Clothes",
 };
 
-const LOCATION_POSITIONS: Record<SprayLocation, { x: number; y: number }> = {
-  wrists: { x: 12, y: 47 },
-  neck: { x: 50, y: 18 },
-  chest: { x: 50, y: 35 },
-  behind_ears: { x: 35, y: 12 },
-  inner_elbows: { x: 22, y: 38 },
-  hair: { x: 50, y: 5 },
-  clothes: { x: 50, y: 55 },
+// Bilateral locations have two positions (left and right)
+const LOCATION_POSITIONS: Record<SprayLocation, { x: number; y: number }[]> = {
+  wrists: [{ x: 12, y: 47 }, { x: 88, y: 47 }],
+  neck: [{ x: 50, y: 18 }],
+  chest: [{ x: 50, y: 35 }],
+  behind_ears: [{ x: 35, y: 12 }, { x: 65, y: 12 }],
+  inner_elbows: [{ x: 22, y: 38 }, { x: 78, y: 38 }],
+  hair: [{ x: 50, y: 5 }],
+  clothes: [{ x: 50, y: 55 }],
 };
 
 function BodyDiagram({ activeLocations, perfume1Name, perfume2Name }: {
@@ -52,12 +53,12 @@ function BodyDiagram({ activeLocations, perfume1Name, perfume2Name }: {
       </svg>
 
       {/* Spray indicators */}
-      {activeLocations.map((loc, i) => {
-        const pos = LOCATION_POSITIONS[loc.location];
+      {activeLocations.flatMap((loc, i) => {
+        const positions = LOCATION_POSITIONS[loc.location];
         const color = loc.perfume === "first" ? "bg-amber-500" : "bg-rose-500";
-        return (
+        return positions.map((pos, j) => (
           <div
-            key={i}
+            key={`${i}-${j}`}
             className={`absolute w-4 h-4 ${color} rounded-full animate-pulse shadow-lg`}
             style={{
               left: `${pos.x}%`,
@@ -66,7 +67,7 @@ function BodyDiagram({ activeLocations, perfume1Name, perfume2Name }: {
             }}
             title={`${loc.perfume === "first" ? perfume1Name : perfume2Name} - ${LOCATION_LABELS[loc.location]}`}
           />
-        );
+        ));
       })}
 
       {/* Legend */}

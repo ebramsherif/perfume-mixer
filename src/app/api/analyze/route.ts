@@ -78,42 +78,59 @@ Based on this information, provide a JSON response with exactly this structure:
 
 Be specific about note interactions. Focus on practical advice.`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are a fragrance expert. Always respond with valid JSON only, no markdown formatting.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-
-    const responseText = completion.choices[0]?.message?.content || "";
-
-    // Parse JSON from response
     let analysis: AIAnalysisResult;
+
     try {
-      // Try to extract JSON from the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are a fragrance expert. Always respond with valid JSON only, no markdown formatting.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        temperature: 0.6,
+        max_tokens: 1200,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+
+      // Parse JSON from response
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("No JSON found in response");
+        }
+      } catch {
+        // Fallback if parsing fails
+        analysis = {
+          summary: responseText.slice(0, 200),
+          strengths: ["Creates a unique scent combination"],
+          considerations: ["Test on skin before wearing out"],
+          occasions: ["Casual outings", "Personal enjoyment"],
+          layeringTip: "Apply sparingly and adjust based on your preference.",
+        };
       }
-    } catch {
-      // Fallback if parsing fails
+    } catch (groqError) {
+      // Handle rate limit or other Groq errors with fallback
+      console.error("Groq API error, using fallback:", groqError);
       analysis = {
-        summary: responseText.slice(0, 200),
-        strengths: ["Creates a unique scent combination"],
-        considerations: ["Test on skin before wearing out"],
-        occasions: ["Casual outings", "Personal enjoyment"],
-        layeringTip: "Apply sparingly and adjust based on your preference.",
+        summary: `Based on note analysis, ${perfume1.name} and ${perfume2.name} show ${matchAnalysis.score >= 70 ? "good" : matchAnalysis.score >= 50 ? "moderate" : "limited"} compatibility for layering.`,
+        strengths: matchAnalysis.sharedNotes.length > 0
+          ? [`Shared notes (${matchAnalysis.sharedNotes.join(", ")}) create cohesion`]
+          : ["Both perfumes have distinct character that could create complexity"],
+        considerations: matchAnalysis.potentialClashes.length > 0
+          ? [`Watch for intensity balance between ${matchAnalysis.potentialClashes[0]}`]
+          : ["Apply lightly and let each fragrance bloom naturally"],
+        occasions: ["Evening events", "Special occasions"],
+        layeringTip: "Apply the heavier fragrance first, then layer the lighter one on top.",
       };
     }
 
