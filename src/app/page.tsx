@@ -9,6 +9,7 @@ import Recommendations from "@/components/Recommendations";
 import LayeringGuide from "@/components/LayeringGuide";
 import AIPairings from "@/components/AIPairings";
 import AskAI from "@/components/AskAI";
+import MyCollection from "@/components/MyCollection";
 import { Perfume, SearchResult, MatchAnalysis } from "@/lib/types";
 import { calculateMatch } from "@/lib/matchAlgorithm";
 
@@ -198,6 +199,15 @@ export default function Home() {
                 </div>
               )}
             </div>
+
+            {/* My Collection - Ranked by compatibility */}
+            <MyCollection
+              currentPerfume={perfume1}
+              onSelectPairing={(perfume) => {
+                setPerfume2(perfume);
+                setState("display2");
+              }}
+            />
 
             {/* AI Pairings and Regular Recommendations */}
             <div className="grid md:grid-cols-2 gap-6">
