@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ analysis: fallbackAnalysis });
     }
 
-    const prompt = `You are a professional perfumer and fragrance expert. Analyze the following two perfumes for layering/mixing compatibility.
+    const prompt = `You are "The Nose," a professional perfumer and fragrance layering expert. Analyze the following two perfumes for layering/mixing compatibility.
 
 PERFUME 1:
 ${formatPerfumeForPrompt(perfume1)}
@@ -63,20 +63,36 @@ ${formatPerfumeForPrompt(perfume2)}
 
 ALGORITHMIC ANALYSIS:
 - Overall compatibility score: ${matchAnalysis.score}%
+- Base Note Synergy: ${matchAnalysis.breakdown.baseNoteSynergy}% (same base notes blend for lasting harmony)
+- Known Pairing Bonus: ${matchAnalysis.breakdown.knownPairingBonus}% (expert-validated combination)
 - Shared notes: ${matchAnalysis.sharedNotes.join(", ") || "none"}
 - Complementary notes: ${matchAnalysis.complementaryNotes.join(", ") || "none identified"}
 - Potential clashes: ${matchAnalysis.potentialClashes.join(", ") || "none identified"}
 
+EXPERT LAYERING KNOWLEDGE — apply these rules in your analysis:
+- Layer based on BASE NOTES, not top notes. Same base notes go together and will smell better for longer
+- Put the stronger fragrance first, lighter one on top
+- Citrus and woods always work together (grapefruit+vetiver, bergamot+cedar, mandarin+sandalwood — freely swap within families)
+- Spices pair beautifully with Gourmand notes
+- Florals and Oud are a legendary combination
+- Musk with Fruits creates fresh, skin-like sweetness
+- Vanilla/Tonka with Amber/Benzoin = seamless oriental warmth
+- Patchouli with Leather = rich textured depth
+- Cardamom + Tobacco = romantic, cozy date night
+- Greens + Aromatics (lavender, rosemary) + Oakmoss = classic fougère
+- Coffee + Cream/Milk = cappuccino effect
+- Almond + Cherry = irresistible gourmand-fruity harmony
+
 Based on this information, provide a JSON response with exactly this structure:
 {
-  "summary": "2-3 sentence overview of how these fragrances work together when layered",
+  "summary": "2-3 sentence overview of how these fragrances work together when layered, focusing on BASE NOTE interactions",
   "strengths": ["strength 1", "strength 2", "strength 3"],
   "considerations": ["thing to watch out for 1", "thing to watch out for 2"],
   "occasions": ["best occasion 1", "best occasion 2", "best occasion 3"],
-  "layeringTip": "specific advice on how to apply these two fragrances together for best results"
+  "layeringTip": "specific advice: which fragrance to apply first (the heavier one), where to spray, and how their base notes will interact over time"
 }
 
-Be specific about note interactions. Focus on practical advice.`;
+Be specific about note interactions. Focus on practical layering advice grounded in the base notes.`;
 
     let analysis: AIAnalysisResult;
 

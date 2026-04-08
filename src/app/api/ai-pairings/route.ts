@@ -25,6 +25,8 @@ KNOWLEDGE BASE - VOLATILITY:
 - Middle Notes (Heart): Medium volatility, 2-4 hours. (Florals, Spices, Fruits) - The "Theme"
 - Base Notes (Dry Down): Low volatility, 4-24+ hours. (Woods, Resins, Musks, Vanilla) - The "Anchor"
 
+CRITICAL LAYERING RULE: Layer fragrances based on BASE notes, not top notes. Same base notes go together, and will smell better for longer, well after the top and mid notes are gone.
+
 OLFACTORY FAMILIES:
 1. Floral: Single florals (Soliflore) or Bouquets
 2. Oriental (Amber): Resins, Vanilla, Spices, Exotic Woods
@@ -36,9 +38,24 @@ SKELETON ACCORDS:
 - Fougère: Lavender (Top) + Coumarin/Tonka (Base) + Oakmoss (Base) - Barbershop, Clean
 - Gourmand: Edible notes (Vanilla, Caramel, Coffee) bridged with Patchouli or Musk
 
+EXPERT PAIRING RULES (prioritize these when recommending layering partners):
+- Citrus + Woods ALWAYS work: grapefruit+vetiver, bergamot+cedar, mandarin+sandalwood — swap freely within families
+- Almond + Cherry = irresistible gourmand-fruity blend
+- Coffee + Cream/Milk = the cappuccino everyone seeks
+- Coffee + Boozy/Whiskey notes = rich indulgent warmth
+- Cardamom + Tobacco = romantic, cozy date night
+- Greens (fir, pine) + Aromatics (lavender, rosemary) + Oakmoss = distinguished fougère
+- Spices + Gourmand = natural pairing
+- Florals + Oud = legendary Middle Eastern tradition
+- Musk + Fruits = fresh skin-like sweetness
+- Vanilla/Tonka + Amber/Benzoin = seamless oriental warmth
+- Patchouli + Leather = rich textured depth
+- Aventus-style (fruity/smoky/pineapple/birch) + Sauvage-style (fresh/spicy/pepper/ambroxan) = surprisingly great combo
+
 LAYERING PRINCIPLES:
 - Bridge Technique: Find common "bridge" notes between perfumes, or suggest a connector (Musk, Iso E Super)
 - Heavy-First Rule: Apply heaviest molecules (Woods/Orientals) first, lightest (Citrus/Florals) second
+- Base Note Priority: When suggesting partners, prioritize matching/compatible BASE notes for longest-lasting harmony
 
 Respond ONLY with valid JSON.`;
 
@@ -63,17 +80,18 @@ export async function POST(request: NextRequest) {
 ${formatPerfumeForPrompt(perfume)}
 
 STEP 1 - DECONSTRUCTION:
-Identify the Dominant Accord and Olfactory Family.
+Identify the Dominant Accord, Olfactory Family, and critically — the BASE NOTE character. Base notes are the foundation for layering because they last the longest and determine how the combo evolves over hours.
 
 STEP 2 - MATCHING STRATEGY:
-Find perfumes that would layer beautifully using:
-- Vibe Match: Same family but different twist
-- Structural Match: Same accord skeleton (Chypre pairs with Chypre, etc.)
-- Bridge Match: Shares key bridge notes for seamless blending
-- Contrast Match: Complementary family that creates interesting tension
+Find perfumes that would layer beautifully using these strategies (in priority order):
+1. Base Note Match: Find fragrances with compatible or shared base notes — same bases blend for longer
+2. Expert Pairing: Apply known layering rules (citrus+woods, florals+oud, spice+gourmand, musk+fruits, etc.)
+3. Bridge Match: Shares key bridge notes for seamless blending
+4. Vibe Match: Same family but different twist
+5. Contrast Match: Complementary family that creates interesting tension
 
 STEP 3 - OUTPUT:
-Give me 5 search terms to find complementary perfumes. Each term should be a specific note combination, accord type, or scent profile that would layer well.
+Give me 5 search terms to find complementary perfumes. Prioritize base note compatibility and expert pairing rules. Each term should be a specific note combination, accord type, or scent profile that would layer well.
 
 Respond with this JSON ONLY:
 {
@@ -86,7 +104,7 @@ Respond with this JSON ONLY:
     {
       "term": "search term for fragrance API",
       "matchType": "vibe|structural|bridge|contrast",
-      "reason": "Why this creates a beautiful layer (mention bridge notes, accord compatibility)"
+      "reason": "Why this creates a beautiful layer (mention base note compatibility, expert pairing rules)"
     }
   ]
 }

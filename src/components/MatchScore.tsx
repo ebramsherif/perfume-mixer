@@ -29,10 +29,12 @@ export default function MatchScore({ analysis }: MatchScoreProps) {
   };
 
   const breakdownItems = [
-    { label: "Note Overlap", value: analysis.breakdown.noteOverlap, description: "Shared notes create cohesion" },
+    { label: "Base Synergy", value: analysis.breakdown.baseNoteSynergy, description: "Same base notes blend for longer-lasting harmony" },
     { label: "Family Harmony", value: analysis.breakdown.familyHarmony, description: "Scent family compatibility" },
-    { label: "Layer Balance", value: analysis.breakdown.layerBalance, description: "Top/heart/base distribution" },
+    { label: "Pairing Bonus", value: analysis.breakdown.knownPairingBonus, description: "Expert-validated layering combination" },
     { label: "Accord Blend", value: analysis.breakdown.accordBlend, description: "Overall character harmony" },
+    { label: "Note Overlap", value: analysis.breakdown.noteOverlap, description: "Shared notes create cohesion" },
+    { label: "Layer Balance", value: analysis.breakdown.layerBalance, description: "Top/heart/base distribution" },
   ];
 
   return (

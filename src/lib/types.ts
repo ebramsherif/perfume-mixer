@@ -42,6 +42,8 @@ export interface MatchAnalysis {
     familyHarmony: number;
     layerBalance: number;
     accordBlend: number;
+    baseNoteSynergy: number;
+    knownPairingBonus: number;
   };
   sharedNotes: string[];
   complementaryNotes: string[];
