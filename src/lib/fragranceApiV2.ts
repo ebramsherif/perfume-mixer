@@ -94,12 +94,31 @@ async function firecrawlScrape(
   return response.json();
 }
 
+// Clean display name from Fragrantica markdown
+// Handles formats like "Brand\\ \\ Perfume Name" or "Brand \\ Perfume Name"
+function cleanDisplayName(rawName: string, brand: string): string {
+  let name = rawName.trim();
+
+  // Remove backslash patterns: "\\ \\", "\\\\", "\\ ", " \\ "
+  name = name.replace(/\\\\/g, "").replace(/\s{2,}/g, " ").trim();
+
+  // If name starts with brand (case-insensitive), strip it
+  const brandLower = brand.toLowerCase();
+  const nameLower = name.toLowerCase();
+  if (nameLower.startsWith(brandLower)) {
+    name = name.slice(brand.length).trim();
+    // Remove any leading separators left over
+    name = name.replace(/^[\s\-–—:|]+/, "").trim();
+  }
+
+  return name || rawName.replace(/\\\\/g, "").trim();
+}
+
 // Parse search results from Fragrantica markdown
 function parseSearchResultsFromMarkdown(markdown: string): SearchResult[] {
   const results: SearchResult[] = [];
 
   // First, extract all image URLs (they appear before the perfume links)
-  // Pattern: ![](https://fimgs.net/mdimg/perfume/m.12345.jpg)
   const imageMap = new Map<string, string>();
   const imagePattern = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)/gi;
   let imgMatch;
@@ -108,45 +127,65 @@ function parseSearchResultsFromMarkdown(markdown: string): SearchResult[] {
     imageMap.set(id, imageUrl);
   }
 
-  // Pattern: Image followed by link and brand on next line
-  // ![](https://fimgs.net/mdimg/perfume/m.99116.jpg)
-  // [Eros Najim](https://www.fragrantica.com/perfume/Versace/Eros-Najim-99116.html)
-  // Versace
+  let match;
+
+  // Pattern 1: Image + link + brand on next line (original format)
   const blockPattern = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)\s*\n\s*\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)\.html\)\s*\n\s*([A-Za-z][^\n]*)/gi;
 
-  let match;
   while ((match = blockPattern.exec(markdown)) !== null) {
     const [, imageUrl, id, displayName, brandSlug, nameSlug, brandLine] = match;
 
     const brand = brandLine.trim() || decodeURIComponent(brandSlug.replace(/-/g, " "));
-    const name = displayName.trim();
+    const name = cleanDisplayName(displayName, brand);
 
     if (!name || !brand) continue;
 
     results.push({
       id,
-      name: decodeURIComponent(name),
+      name,
       brand,
       imageUrl,
       url: `https://www.fragrantica.com/perfume/${brandSlug}/${nameSlug}.html`,
     });
   }
 
-  // Fallback: Just find links without the block pattern
+  // Pattern 2: Image + link WITHOUT brand line (new format where brand is in display name)
+  if (results.length === 0) {
+    const blockPattern2 = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)\s*\n\s*\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)\.html\)/gi;
+
+    while ((match = blockPattern2.exec(markdown)) !== null) {
+      const [, imageUrl, id, displayName, brandSlug, nameSlug] = match;
+
+      const brand = decodeURIComponent(brandSlug.replace(/-/g, " "));
+      const name = cleanDisplayName(displayName, brand);
+
+      if (!name || !brand) continue;
+
+      results.push({
+        id,
+        name,
+        brand,
+        imageUrl,
+        url: `https://www.fragrantica.com/perfume/${brandSlug}/${nameSlug}.html`,
+      });
+    }
+  }
+
+  // Pattern 3: Just perfume links with IDs (broadest fallback)
   if (results.length === 0) {
     const linkPattern = /\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)-(\d+)\.html\)/gi;
     while ((match = linkPattern.exec(markdown)) !== null) {
       const [, displayName, brandSlug, , id] = match;
 
       const brand = decodeURIComponent(brandSlug.replace(/-/g, " "));
-      const name = displayName.trim();
+      const name = cleanDisplayName(displayName, brand);
       const imageUrl = imageMap.get(id);
 
       if (!name || !brand) continue;
 
       results.push({
         id,
-        name: decodeURIComponent(name),
+        name,
         brand,
         imageUrl,
         url: `https://www.fragrantica.com/perfume/${brandSlug}/${displayName.replace(/\s+/g, "-")}-${id}.html`,
@@ -345,8 +384,12 @@ export async function searchFragrancesV2(query: string): Promise<SearchResult[]>
     }
 
     const markdown = response.data.markdown;
+    console.log(`[Search V2] Markdown length: ${markdown.length}, first 500 chars:\n${markdown.slice(0, 500)}`);
     const results = parseSearchResultsFromMarkdown(markdown);
     console.log(`[Search V2] Found ${results.length} results for: ${query}`);
+    if (results.length > 0) {
+      console.log(`[Search V2] First result: ${JSON.stringify(results[0])}`);
+    }
 
     // Only cache non-empty results
     if (results.length > 0) {
