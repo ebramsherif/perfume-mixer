@@ -94,102 +94,69 @@ async function firecrawlScrape(
   return response.json();
 }
 
-// Clean display name from Fragrantica markdown
-// Handles formats like "Brand\\ \\ Perfume Name" or "Brand \\ Perfume Name"
-function cleanDisplayName(rawName: string, brand: string): string {
-  let name = rawName.trim();
-
-  // Remove backslash patterns: "\\ \\", "\\\\", "\\ ", " \\ "
-  name = name.replace(/\\\\/g, "").replace(/\s{2,}/g, " ").trim();
-
-  // If name starts with brand (case-insensitive), strip it
-  const brandLower = brand.toLowerCase();
-  const nameLower = name.toLowerCase();
-  if (nameLower.startsWith(brandLower)) {
-    name = name.slice(brand.length).trim();
-    // Remove any leading separators left over
-    name = name.replace(/^[\s\-–—:|]+/, "").trim();
-  }
-
-  return name || rawName.replace(/\\\\/g, "").trim();
-}
-
-// Parse search results from Fragrantica markdown
+// Parse search results from Fragrantica markdown (new format, 2025+)
+// New format uses thumbnail grid with title attributes:
+// [![perfume Name](thumb_url)\\\n**Name**\\\nBrand\\\nYear\\\nReviews](url "Brand Name gender year")
 function parseSearchResultsFromMarkdown(markdown: string): SearchResult[] {
   const results: SearchResult[] = [];
-
-  // First, extract all image URLs (they appear before the perfume links)
-  const imageMap = new Map<string, string>();
-  const imagePattern = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)/gi;
-  let imgMatch;
-  while ((imgMatch = imagePattern.exec(markdown)) !== null) {
-    const [, imageUrl, id] = imgMatch;
-    imageMap.set(id, imageUrl);
-  }
-
   let match;
 
-  // Pattern 1: Image + link + brand on next line (original format)
-  const blockPattern = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)\s*\n\s*\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)\.html\)\s*\n\s*([A-Za-z][^\n]*)/gi;
+  // Pattern 1 (primary): New grid format with title attribute
+  // Captures: ID from thumb URL, name from **bold**, brand slug from URL, full URL, title attr
+  const newPattern = /\[!\[perfume[^\]]*\]\(https:\/\/fimgs\.net\/mdimg\/perfume-thumbs\/\d+x\d+\.(\d+)\.jpg\)[^\]]*?\*\*([^*]+)\*\*[^\]]*?\]\((https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/[^)]+\.html)(?:\s+"([^"]*)")?\)/gi;
 
-  while ((match = blockPattern.exec(markdown)) !== null) {
-    const [, imageUrl, id, displayName, brandSlug, nameSlug, brandLine] = match;
+  while ((match = newPattern.exec(markdown)) !== null) {
+    const [, id, boldName, url, brandSlug, titleAttr] = match;
 
-    const brand = brandLine.trim() || decodeURIComponent(brandSlug.replace(/-/g, " "));
-    const name = cleanDisplayName(displayName, brand);
+    // Extract brand from the text between **name** and the closing ]
+    // Or fall back to brand slug from URL
+    let brand = decodeURIComponent(brandSlug.replace(/-/g, " "));
+    const name = boldName.trim();
+
+    // Try to get a cleaner brand from the title attribute: "Brand Name gender year"
+    if (titleAttr) {
+      const titleBrandMatch = titleAttr.match(/^([A-Z][^*]*?)\s+\S+\s+(?:male|female|unisex)\s+\d{4}$/i);
+      if (titleBrandMatch) {
+        // The title format is "Brand PerfumeName gender year"
+        // Extract brand as the part before the perfume name
+        const titleText = titleAttr.replace(/\s+(?:male|female|unisex)\s+\d{4}$/i, "").trim();
+        if (titleText.toLowerCase().startsWith(brand.toLowerCase())) {
+          brand = titleText.slice(0, brand.length); // Preserve original casing
+        }
+      }
+    }
+
+    // Convert thumbnail URL to standard image URL
+    const imageUrl = `https://fimgs.net/mdimg/perfume/m.${id}.jpg`;
 
     if (!name || !brand) continue;
 
-    results.push({
-      id,
-      name,
-      brand,
-      imageUrl,
-      url: `https://www.fragrantica.com/perfume/${brandSlug}/${nameSlug}.html`,
-    });
+    results.push({ id, name, brand, imageUrl, url });
   }
 
-  // Pattern 2: Image + link WITHOUT brand line (new format where brand is in display name)
+  // Pattern 2 (fallback): Old format with small images and separate brand line
   if (results.length === 0) {
-    const blockPattern2 = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)\s*\n\s*\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)\.html\)/gi;
-
-    while ((match = blockPattern2.exec(markdown)) !== null) {
-      const [, imageUrl, id, displayName, brandSlug, nameSlug] = match;
-
-      const brand = decodeURIComponent(brandSlug.replace(/-/g, " "));
-      const name = cleanDisplayName(displayName, brand);
-
-      if (!name || !brand) continue;
-
-      results.push({
-        id,
-        name,
-        brand,
-        imageUrl,
-        url: `https://www.fragrantica.com/perfume/${brandSlug}/${nameSlug}.html`,
-      });
+    const imageMap = new Map<string, string>();
+    const imagePattern = /!\[\]\((https:\/\/fimgs\.net\/mdimg\/perfume\/m\.(\d+)\.jpg)\)/gi;
+    while ((match = imagePattern.exec(markdown)) !== null) {
+      imageMap.set(match[2], match[1]);
     }
-  }
 
-  // Pattern 3: Just perfume links with IDs (broadest fallback)
-  if (results.length === 0) {
-    const linkPattern = /\[([^\]]+)\]\(https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/([^)]+)-(\d+)\.html\)/gi;
+    const linkPattern = /\[([^\]]+)\]\((https:\/\/www\.fragrantica\.com\/perfume\/([^/]+)\/[^)]*-(\d+)\.html)[^)]*\)/gi;
     while ((match = linkPattern.exec(markdown)) !== null) {
-      const [, displayName, brandSlug, , id] = match;
+      const [, rawName, url, brandSlug, id] = match;
 
       const brand = decodeURIComponent(brandSlug.replace(/-/g, " "));
-      const name = cleanDisplayName(displayName, brand);
-      const imageUrl = imageMap.get(id);
+      // Clean display name: remove Brand\\ \\ prefix
+      let name = rawName.replace(/\\\\/g, "").replace(/\s{2,}/g, " ").trim();
+      if (name.toLowerCase().startsWith(brand.toLowerCase())) {
+        name = name.slice(brand.length).replace(/^[\s\-–—:|]+/, "").trim();
+      }
+
+      const imageUrl = imageMap.get(id) || `https://fimgs.net/mdimg/perfume/m.${id}.jpg`;
 
       if (!name || !brand) continue;
-
-      results.push({
-        id,
-        name,
-        brand,
-        imageUrl,
-        url: `https://www.fragrantica.com/perfume/${brandSlug}/${displayName.replace(/\s+/g, "-")}-${id}.html`,
-      });
+      results.push({ id, name, brand, imageUrl, url });
     }
   }
 
@@ -372,11 +339,10 @@ export async function searchFragrancesV2(query: string): Promise<SearchResult[]>
   }
 
   try {
-    // Use legacy display mode for simpler HTML
-    const searchUrl = `https://www.fragrantica.com/search/?display=old&query=${encodeURIComponent(query)}`;
+    const searchUrl = `https://www.fragrantica.com/search/?query=${encodeURIComponent(query)}`;
 
     console.log(`[Search V2] Scraping: ${searchUrl}`);
-    const response = await firecrawlScrape(searchUrl, "markdown", 2000);
+    const response = await firecrawlScrape(searchUrl, "markdown", 5000);
 
     if (!response.success || !response.data?.markdown) {
       console.error("[Search V2] Firecrawl failed:", response.error);
